@@ -12,6 +12,7 @@
 // ===----------------------------------------------------------------------===//
 
 import Testing
+
 @testable import RFC_6068
 
 @Suite("RFC 6068 Mailto Tests")
@@ -34,13 +35,17 @@ struct MailtoTests {
 
     @Test("Parse mailto with percent-encoded subject")
     func parseMailtoWithEncodedSubject() throws {
-        let mailto = try RFC_6068.Mailto(ascii: "mailto:user@example.com?subject=Hello%20World".utf8)
+        let mailto = try RFC_6068.Mailto(
+            ascii: "mailto:user@example.com?subject=Hello%20World".utf8
+        )
         #expect(mailto.subject == "Hello World")
     }
 
     @Test("Parse mailto with multiple headers")
     func parseMailtoWithMultipleHeaders() throws {
-        let mailto = try RFC_6068.Mailto(ascii: "mailto:user@example.com?subject=Test&body=Hello".utf8)
+        let mailto = try RFC_6068.Mailto(
+            ascii: "mailto:user@example.com?subject=Test&body=Hello".utf8
+        )
         #expect(mailto.subject == "Test")
         #expect(mailto.body == "Hello")
     }
@@ -108,7 +113,9 @@ struct MailtoTests {
     @Test("RFC 6068 example: with subject")
     func rfcExampleWithSubject() throws {
         // RFC 6068 Section 6.2
-        let mailto = try RFC_6068.Mailto(ascii: "mailto:infobot@example.com?subject=current-issue".utf8)
+        let mailto = try RFC_6068.Mailto(
+            ascii: "mailto:infobot@example.com?subject=current-issue".utf8
+        )
         #expect(mailto.to.first?.rawValue == "infobot@example.com")
         #expect(mailto.subject == "current-issue")
     }

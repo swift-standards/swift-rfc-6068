@@ -124,6 +124,7 @@ let bytes = [UInt8](mailto)
 | [swift-rfc-3987](https://github.com/swift-standards/swift-rfc-3987) | Internationalized Resource Identifiers (IRIs) |
 | [swift-rfc-5322](https://github.com/swift-standards/swift-rfc-5322) | Internet Message Format |
 | [swift-rfc-2369](https://github.com/swift-standards/swift-rfc-2369) | URLs for Mailing List Management |
+| [swift-rfc-8058](https://github.com/swift-standards/swift-rfc-8058) | One-Click Unsubscribe for List Email |
 | [swift-incits-4-1986](https://github.com/swift-standards/swift-incits-4-1986) | US-ASCII character operations |
 
 ## License

@@ -120,15 +120,19 @@ extension RFC_6068.Mailto.Header: UInt8.ASCII.Serializable {
     static public func serialize<Buffer>(
         ascii header: RFC_6068.Mailto.Header,
         into buffer: inout Buffer
-    ) where Buffer : RangeReplaceableCollection, Buffer.Element == UInt8 {
-        
+    ) where Buffer: RangeReplaceableCollection, Buffer.Element == UInt8 {
+
         // Percent-encode name
-        buffer.append(contentsOf: RFC_3986.percentEncode(Array(header.name.utf8), allowing: .mailto.qchar))
+        buffer.append(
+            contentsOf: RFC_3986.percentEncode(Array(header.name.utf8), allowing: .mailto.qchar)
+        )
 
         buffer.append(UInt8.ascii.equalsSign)
 
         // Percent-encode value
-        buffer.append(contentsOf: RFC_3986.percentEncode(Array(header.value.utf8), allowing: .mailto.qchar))
+        buffer.append(
+            contentsOf: RFC_3986.percentEncode(Array(header.value.utf8), allowing: .mailto.qchar)
+        )
     }
 
     /// Parses a header field from ASCII bytes (AUTHORITATIVE IMPLEMENTATION)

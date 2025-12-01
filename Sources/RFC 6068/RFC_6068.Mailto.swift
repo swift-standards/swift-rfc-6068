@@ -120,7 +120,7 @@ extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
     static public func serialize<Buffer>(
         ascii mailto: RFC_6068.Mailto,
         into buffer: inout Buffer
-    ) where Buffer : RangeReplaceableCollection, Buffer.Element == UInt8 {
+    ) where Buffer: RangeReplaceableCollection, Buffer.Element == UInt8 {
         // Scheme
         buffer.append(contentsOf: "mailto:".utf8)
 
@@ -176,7 +176,8 @@ extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
         guard byteArray.count >= scheme.count else {
             throw Error.missingScheme(String(decoding: byteArray, as: UTF8.self))
         }
-        let schemeString = String(decoding: byteArray.prefix(scheme.count), as: UTF8.self).lowercased()
+        let schemeString = String(decoding: byteArray.prefix(scheme.count), as: UTF8.self)
+            .lowercased()
         guard schemeString == "mailto:" else {
             throw Error.missingScheme(String(decoding: byteArray, as: UTF8.self))
         }
@@ -222,13 +223,11 @@ extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
                 // Trim whitespace
                 var trimmed = Array(addrStr.utf8)
                 while !trimmed.isEmpty
-                    && (trimmed.first == UInt8.ascii.space || trimmed.first == UInt8.ascii.htab)
-                {
+                    && (trimmed.first == UInt8.ascii.space || trimmed.first == UInt8.ascii.htab) {
                     trimmed.removeFirst()
                 }
                 while !trimmed.isEmpty
-                    && (trimmed.last == UInt8.ascii.space || trimmed.last == UInt8.ascii.htab)
-                {
+                    && (trimmed.last == UInt8.ascii.space || trimmed.last == UInt8.ascii.htab) {
                     trimmed.removeLast()
                 }
                 guard !trimmed.isEmpty else { continue }
@@ -322,7 +321,9 @@ extension RFC_3986.ByteSet {
         ///
         /// Per RFC 6068, the path component contains addr-spec values which
         /// need unreserved characters plus `@` and `.` unencoded.
-        public static let addrSpec = RFC_3986.ByteSet.unreserved.union(RFC_3986.ByteSet(ascii: "@."))
+        public static let addrSpec = RFC_3986.ByteSet.unreserved.union(
+            RFC_3986.ByteSet(ascii: "@.")
+        )
     }
 
     /// RFC 6068 character sets

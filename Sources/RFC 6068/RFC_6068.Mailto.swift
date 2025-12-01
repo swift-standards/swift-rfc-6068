@@ -47,7 +47,9 @@ extension RFC_6068 {
         public let headers: [Header]
 
         /// Creates a mailto URI WITHOUT validation
-        init(
+        ///
+        /// Private to ensure all public construction goes through validation.
+        private init(
             __unchecked: Void,
             to: [RFC_5322.EmailAddress],
             headers: [Header]
@@ -61,10 +63,13 @@ extension RFC_6068 {
         /// - Parameters:
         ///   - to: The recipient email addresses
         ///   - headers: Optional header fields (subject, body, cc, etc.)
+        /// - Throws: `Error` if validation fails
         public init(
             to: [RFC_5322.EmailAddress] = [],
             headers: [Header] = []
-        ) {
+        ) throws(Error) {
+            // Validation: must have at least one recipient or one header
+            // (empty mailto: is technically valid per RFC 6068, so no validation needed currently)
             self.init(__unchecked: (), to: to, headers: headers)
         }
     }
@@ -112,7 +117,32 @@ extension RFC_6068.Mailto {
 // MARK: - UInt8.ASCII.Serializable
 
 extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
-    public static let serialize: @Sendable (Self) -> [UInt8] = [UInt8].init
+    static public func serialize<Buffer>(
+        ascii mailto: RFC_6068.Mailto,
+        into buffer: inout Buffer
+    ) where Buffer : RangeReplaceableCollection, Buffer.Element == UInt8 {
+        // Scheme
+        buffer.append(contentsOf: "mailto:".utf8)
+
+        // To addresses (percent-encoded, comma-separated)
+        for (index, addr) in mailto.to.enumerated() {
+            if index > 0 {
+                buffer.append(UInt8.ascii.comma)
+            }
+            buffer.append(contentsOf: RFC_6068.Mailto.percentEncode(Array(addr.rawValue.utf8)))
+        }
+
+        // Headers
+        if !mailto.headers.isEmpty {
+            buffer.append(UInt8.ascii.questionMark)
+            for (index, header) in mailto.headers.enumerated() {
+                if index > 0 {
+                    buffer.append(UInt8.ascii.ampersand)
+                }
+                buffer.append(contentsOf: [UInt8](header))
+            }
+        }
+    }
 
     /// Parses a mailto URI from ASCII bytes (AUTHORITATIVE IMPLEMENTATION)
     ///
@@ -141,37 +171,22 @@ extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
         let byteArray = Array(bytes)
         guard !byteArray.isEmpty else { throw Error.empty }
 
-        let remainder = try Self.validateAndStripScheme(byteArray)
-        let (pathBytes, queryBytes) = Self.splitPathAndQuery(remainder)
-        let toAddresses = Self.parseToAddresses(pathBytes)
-        let headers = Self.parseHeaders(queryBytes)
-
-        self.init(__unchecked: (), to: toAddresses, headers: headers)
-    }
-
-    /// Validates the mailto: scheme and returns the remainder
-    private static func validateAndStripScheme(_ bytes: [UInt8]) throws(Error) -> [UInt8] {
+        // Validate and strip scheme
         let scheme = Array("mailto:".utf8)
-        guard bytes.count >= scheme.count else {
-            throw Error.missingScheme(String(decoding: bytes, as: UTF8.self))
+        guard byteArray.count >= scheme.count else {
+            throw Error.missingScheme(String(decoding: byteArray, as: UTF8.self))
         }
-
-        let schemeBytes = Array(bytes.prefix(scheme.count))
-        let schemeString = String(decoding: schemeBytes, as: UTF8.self).lowercased()
+        let schemeString = String(decoding: byteArray.prefix(scheme.count), as: UTF8.self).lowercased()
         guard schemeString == "mailto:" else {
-            throw Error.missingScheme(String(decoding: bytes, as: UTF8.self))
+            throw Error.missingScheme(String(decoding: byteArray, as: UTF8.self))
         }
+        let remainder = Array(byteArray.dropFirst(scheme.count))
 
-        return Array(bytes.dropFirst(scheme.count))
-    }
-
-    /// Splits the URI into path and query components
-    private static func splitPathAndQuery(_ bytes: [UInt8]) -> (path: [UInt8], query: [UInt8]) {
+        // Split into path and query components
         var pathBytes: [UInt8] = []
         var queryBytes: [UInt8] = []
         var inQuery = false
-
-        for byte in bytes {
+        for byte in remainder {
             if byte == UInt8.ascii.questionMark && !inQuery {
                 inQuery = true
             } else if inQuery {
@@ -181,133 +196,76 @@ extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
             }
         }
 
-        return (pathBytes, queryBytes)
-    }
+        // Parse To addresses from path
+        var toAddresses: [RFC_5322.EmailAddress] = []
+        if !pathBytes.isEmpty {
+            let decodedPath = RFC_3986.percentDecode(pathBytes)
 
-    /// Parses To addresses from the path component
-    private static func parseToAddresses(_ pathBytes: [UInt8]) -> [RFC_5322.EmailAddress] {
-        guard !pathBytes.isEmpty else { return [] }
-
-        let decodedPath = percentDecode(pathBytes)
-        let addressStrings = splitOnComma(decodedPath)
-
-        return addressStrings.compactMap { addrStr in
-            let trimmed = trimWhitespace(Array(addrStr.utf8))
-            guard !trimmed.isEmpty else { return nil }
-            return try? RFC_5322.EmailAddress(String(decoding: trimmed, as: UTF8.self))
-        }
-    }
-
-    /// Parses headers from the query component
-    private static func parseHeaders(_ queryBytes: [UInt8]) -> [Header] {
-        guard !queryBytes.isEmpty else { return [] }
-
-        return splitOnAmpersand(queryBytes).compactMap { fieldBytes in
-            try? Header(ascii: fieldBytes)
-        }
-    }
-
-    /// Splits bytes on comma separator
-    private static func splitOnComma(_ bytes: [UInt8]) -> [String] {
-        var result: [String] = []
-        var current: [UInt8] = []
-
-        for byte in bytes {
-            if byte == UInt8.ascii.comma {
-                if !current.isEmpty {
-                    result.append(String(decoding: current, as: UTF8.self))
-                    current = []
-                }
-            } else {
-                current.append(byte)
-            }
-        }
-
-        if !current.isEmpty {
-            result.append(String(decoding: current, as: UTF8.self))
-        }
-
-        return result
-    }
-
-    /// Splits bytes on ampersand separator
-    private static func splitOnAmpersand(_ bytes: [UInt8]) -> [[UInt8]] {
-        var result: [[UInt8]] = []
-        var current: [UInt8] = []
-
-        for byte in bytes {
-            if byte == UInt8.ascii.ampersand {
-                if !current.isEmpty {
-                    result.append(current)
-                    current = []
-                }
-            } else {
-                current.append(byte)
-            }
-        }
-
-        if !current.isEmpty {
-            result.append(current)
-        }
-
-        return result
-    }
-
-    /// Trims leading and trailing whitespace from bytes
-    private static func trimWhitespace(_ bytes: [UInt8]) -> [UInt8] {
-        var result = bytes
-        while !result.isEmpty
-            && (result.first == UInt8.ascii.space || result.first == UInt8.ascii.htab)
-        {
-            result.removeFirst()
-        }
-        while !result.isEmpty
-            && (result.last == UInt8.ascii.space || result.last == UInt8.ascii.htab)
-        {
-            result.removeLast()
-        }
-        return result
-    }
-
-    /// Percent-decodes a byte sequence per RFC 3986
-    static func percentDecode(_ bytes: [UInt8]) -> [UInt8] {
-        var result: [UInt8] = []
-        result.reserveCapacity(bytes.count)
-
-        var i = bytes.startIndex
-        while i < bytes.endIndex {
-            if bytes[i] == UInt8.ascii.percentSign && i + 2 < bytes.endIndex {
-                let hi = bytes[i + 1]
-                let lo = bytes[i + 2]
-                if let value = hexValue(hi: hi, lo: lo) {
-                    result.append(value)
-                    i += 3
-                    continue
+            // Split on comma
+            var addressStrings: [String] = []
+            var current: [UInt8] = []
+            for byte in decodedPath {
+                if byte == UInt8.ascii.comma {
+                    if !current.isEmpty {
+                        addressStrings.append(String(decoding: current, as: UTF8.self))
+                        current = []
+                    }
+                } else {
+                    current.append(byte)
                 }
             }
-            result.append(bytes[i])
-            i += 1
-        }
-        return result
-    }
+            if !current.isEmpty {
+                addressStrings.append(String(decoding: current, as: UTF8.self))
+            }
 
-    /// Converts two hex digit bytes to a value
-    private static func hexValue(hi: UInt8, lo: UInt8) -> UInt8? {
-        guard let hiVal = hexDigitValue(hi), let loVal = hexDigitValue(lo) else {
-            return nil
+            for addrStr in addressStrings {
+                // Trim whitespace
+                var trimmed = Array(addrStr.utf8)
+                while !trimmed.isEmpty
+                    && (trimmed.first == UInt8.ascii.space || trimmed.first == UInt8.ascii.htab)
+                {
+                    trimmed.removeFirst()
+                }
+                while !trimmed.isEmpty
+                    && (trimmed.last == UInt8.ascii.space || trimmed.last == UInt8.ascii.htab)
+                {
+                    trimmed.removeLast()
+                }
+                guard !trimmed.isEmpty else { continue }
+                if let addr = try? RFC_5322.EmailAddress(String(decoding: trimmed, as: UTF8.self)) {
+                    toAddresses.append(addr)
+                }
+            }
         }
-        return (hiVal << 4) | loVal
-    }
 
-    private static func hexDigitValue(_ byte: UInt8) -> UInt8? {
-        if byte >= UInt8.ascii.`0` && byte <= UInt8.ascii.`9` {
-            return byte - UInt8.ascii.`0`
-        } else if byte >= UInt8.ascii.A && byte <= UInt8.ascii.F {
-            return byte - UInt8.ascii.A + 10
-        } else if byte >= UInt8.ascii.a && byte <= UInt8.ascii.f {
-            return byte - UInt8.ascii.a + 10
+        // Parse headers from query
+        var headers: [Header] = []
+        if !queryBytes.isEmpty {
+            // Split on ampersand
+            var headerFields: [[UInt8]] = []
+            var currentField: [UInt8] = []
+            for byte in queryBytes {
+                if byte == UInt8.ascii.ampersand {
+                    if !currentField.isEmpty {
+                        headerFields.append(currentField)
+                        currentField = []
+                    }
+                } else {
+                    currentField.append(byte)
+                }
+            }
+            if !currentField.isEmpty {
+                headerFields.append(currentField)
+            }
+
+            for fieldBytes in headerFields {
+                if let header = try? Header(ascii: fieldBytes) {
+                    headers.append(header)
+                }
+            }
         }
-        return nil
+
+        try self.init(to: toAddresses, headers: headers)
     }
 }
 
@@ -317,11 +275,7 @@ extension RFC_6068.Mailto: UInt8.ASCII.RawRepresentable {
     public typealias RawValue = String
 }
 
-extension RFC_6068.Mailto: CustomStringConvertible {
-    public var description: String {
-        String(self)
-    }
-}
+extension RFC_6068.Mailto: CustomStringConvertible {}
 
 extension RFC_6068.Mailto: Hashable {
     public func hash(into hasher: inout Hasher) {
@@ -334,133 +288,56 @@ extension RFC_6068.Mailto: Hashable {
     }
 }
 
-// MARK: - [UInt8] Conversion
+// MARK: - RFC 6068 ByteSets
 
-extension [UInt8] {
-    /// Creates ASCII bytes from RFC 6068 Mailto URI
-    ///
-    /// ## Category Theory
-    ///
-    /// Serialization (natural transformation):
-    /// - **Domain**: RFC_6068.Mailto (structured data)
-    /// - **Codomain**: [UInt8] (ASCII bytes)
-    ///
-    /// ## Example
-    ///
-    /// ```swift
-    /// let mailto = RFC_6068.Mailto(to: [addr], headers: [.subject("Hello")])
-    /// let bytes = [UInt8](mailto)  // "mailto:user@example.com?subject=Hello"
-    /// ```
-    ///
-    /// - Parameter mailto: The mailto URI to serialize
-    public init(_ mailto: RFC_6068.Mailto) {
-        self = []
+extension RFC_3986.ByteSet {
+    /// RFC 6068 character sets namespace
+    public enum Mailto {
+        /// RFC 6068 some-delims: `! $ ' ( ) * + , ; : @`
+        ///
+        /// Per RFC 6068 Section 2:
+        /// ```
+        /// some-delims = "!" / "$" / "'" / "(" / ")" / "*"
+        ///             / "+" / "," / ";" / ":" / "@"
+        /// ```
+        ///
+        /// This is a subset of RFC 3986 sub-delims that excludes `&` and `=`
+        /// because those are delimiters in mailto URI query strings.
+        public static let someDelims = RFC_3986.ByteSet(
+            ascii: "!$'()*+,;:@"
+        )
 
-        // Scheme
-        self.append(contentsOf: "mailto:".utf8)
+        /// RFC 6068 qchar = unreserved / pct-encoded / some-delims
+        ///
+        /// Per RFC 6068 Section 2:
+        /// ```
+        /// qchar = unreserved / pct-encoded / some-delims
+        /// ```
+        ///
+        /// Characters allowed in mailto header field names and values.
+        /// Excludes `&` and `=` which are query string delimiters.
+        public static let qchar = RFC_3986.ByteSet.unreserved.union(someDelims)
 
-        // To addresses (percent-encoded, comma-separated)
-        for (index, addr) in mailto.to.enumerated() {
-            if index > 0 {
-                self.append(UInt8.ascii.comma)
-            }
-            self.append(contentsOf: RFC_6068.Mailto.percentEncode(Array(addr.rawValue.utf8)))
-        }
-
-        // Headers
-        if !mailto.headers.isEmpty {
-            self.append(UInt8.ascii.questionMark)
-            for (index, header) in mailto.headers.enumerated() {
-                if index > 0 {
-                    self.append(UInt8.ascii.ampersand)
-                }
-                self.append(contentsOf: [UInt8](header))
-            }
-        }
+        /// Characters allowed in mailto addr-spec path
+        ///
+        /// Per RFC 6068, the path component contains addr-spec values which
+        /// need unreserved characters plus `@` and `.` unencoded.
+        public static let addrSpec = RFC_3986.ByteSet.unreserved.union(RFC_3986.ByteSet(ascii: "@."))
     }
+
+    /// RFC 6068 character sets
+    public static var mailto: Mailto.Type { Mailto.self }
 }
 
 // MARK: - Percent Encoding
 
 extension RFC_6068.Mailto {
-    /// Characters that are safe in mailto URI path (addr-spec)
-    /// Per RFC 6068 Section 2, we need to encode characters not allowed in addr-spec
-    static func percentEncode(_ bytes: [UInt8]) -> [UInt8] {
-        var result: [UInt8] = []
-        result.reserveCapacity(bytes.count * 3)  // worst case
-
-        for byte in bytes {
-            if isUnreservedOrAllowed(byte) {
-                result.append(byte)
-            } else {
-                result.append(UInt8.ascii.percentSign)
-                result.append(hexDigit(byte >> 4))
-                result.append(hexDigit(byte & 0x0F))
-            }
-        }
-        return result
-    }
-
-    /// Percent-encodes for header values (more restrictive)
-    static func percentEncodeHeaderValue(_ bytes: [UInt8]) -> [UInt8] {
-        var result: [UInt8] = []
-        result.reserveCapacity(bytes.count * 3)
-
-        for byte in bytes {
-            if isQchar(byte) {
-                result.append(byte)
-            } else {
-                result.append(UInt8.ascii.percentSign)
-                result.append(hexDigit(byte >> 4))
-                result.append(hexDigit(byte & 0x0F))
-            }
-        }
-        return result
-    }
-
-    /// RFC 6068 qchar = unreserved / pct-encoded / some-delims
-    /// some-delims = "!" / "$" / "'" / "(" / ")" / "*" / "+" / "," / ";" / ":" / "@"
-    private static func isQchar(_ byte: UInt8) -> Bool {
-        isUnreserved(byte) || isSomeDelims(byte)
-    }
-
-    /// RFC 3986 unreserved = ALPHA / DIGIT / "-" / "." / "_" / "~"
-    private static func isUnreserved(_ byte: UInt8) -> Bool {
-        byte.ascii.isAlphanumeric || byte == UInt8.ascii.hyphen || byte == UInt8.ascii.period
-            || byte == UInt8.ascii.underline || byte == UInt8.ascii.tilde
-    }
-
-    /// Characters allowed in addr-spec that don't need encoding
-    private static func isUnreservedOrAllowed(_ byte: UInt8) -> Bool {
-        isUnreserved(byte) || byte == UInt8.ascii.atSign || byte == UInt8.ascii.period
-    }
-
-    /// RFC 6068 some-delims
-    private static func isSomeDelims(_ byte: UInt8) -> Bool {
-        byte == UInt8.ascii.exclamationPoint || byte == UInt8.ascii.dollarSign
-            || byte == UInt8.ascii.apostrophe || byte == UInt8.ascii.leftParenthesis
-            || byte == UInt8.ascii.rightParenthesis || byte == UInt8.ascii.asterisk
-            || byte == UInt8.ascii.plusSign || byte == UInt8.ascii.comma
-            || byte == UInt8.ascii.semicolon || byte == UInt8.ascii.colon
-            || byte == UInt8.ascii.atSign
-    }
-
-    private static func hexDigit(_ nibble: UInt8) -> UInt8 {
-        if nibble < 10 {
-            return UInt8.ascii.`0` + nibble
-        } else {
-            return UInt8.ascii.A + nibble - 10
-        }
-    }
-}
-
-// MARK: - StringProtocol Conversion
-
-extension StringProtocol {
-    /// Create a string from an RFC 6068 Mailto URI
+    /// Percent-encodes bytes for mailto URI path (addr-spec)
     ///
-    /// - Parameter mailto: The mailto URI to convert
-    public init(_ mailto: RFC_6068.Mailto) {
-        self = Self(decoding: mailto.bytes, as: UTF8.self)
+    /// Per RFC 6068 Section 2, characters not allowed in addr-spec must be encoded.
+    static func percentEncode<Bytes: Collection>(
+        _ bytes: Bytes
+    ) -> [UInt8] where Bytes.Element == UInt8 {
+        RFC_3986.percentEncode(bytes, allowing: .mailto.addrSpec)
     }
 }

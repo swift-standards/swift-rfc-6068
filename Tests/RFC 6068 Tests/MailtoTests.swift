@@ -66,9 +66,9 @@ struct MailtoTests {
     @Test("Serialize mailto URI")
     func serializeMailto() throws {
         let addr = try RFC_5322.EmailAddress("user@example.com")
-        let mailto = RFC_6068.Mailto(
+        let mailto = try RFC_6068.Mailto(
             to: [addr],
-            headers: [.subject("Hello")]
+            headers: [try .subject("Hello")]
         )
         let serialized = String(mailto)
         #expect(serialized.hasPrefix("mailto:"))
@@ -92,12 +92,12 @@ struct MailtoTests {
     }
 
     @Test("Header factory methods")
-    func headerFactoryMethods() {
-        let subject = RFC_6068.Mailto.Header.subject("Test")
+    func headerFactoryMethods() throws {
+        let subject = try RFC_6068.Mailto.Header.subject("Test")
         #expect(subject.name == "subject")
         #expect(subject.value == "Test")
 
-        let body = RFC_6068.Mailto.Header.body("Content")
+        let body = try RFC_6068.Mailto.Header.body("Content")
         #expect(body.name == "body")
         #expect(body.value == "Content")
     }

@@ -38,18 +38,32 @@ extension RFC_6068.Mailto {
         public let value: String
 
         /// Creates a header WITHOUT validation
-        init(__unchecked: Void, name: String, value: String) {
+        ///
+        /// Private to ensure all public construction goes through validation.
+        private init(
+            __unchecked: Void,
+            name: String,
+            value: String
+        ) {
             self.name = name
             self.value = value
         }
 
-        /// Creates a new header field
+        /// Creates a header field
         ///
         /// - Parameters:
-        ///   - name: The header field name
+        ///   - name: The header field name (e.g., "subject", "body")
         ///   - value: The header field value
-        public init(name: String, value: String) {
-            self.init(__unchecked: (), name: name, value: value)
+        /// - Throws: `Error.emptyName` if the name is empty
+        public init(name: String, value: String) throws(Error) {
+            guard !name.isEmpty else {
+                throw Error.emptyName("name cannot be empty")
+            }
+            self.init(
+                __unchecked: (),
+                name: name,
+                value: value
+            )
         }
     }
 }
@@ -58,40 +72,64 @@ extension RFC_6068.Mailto {
 
 extension RFC_6068.Mailto.Header {
     /// Creates a Subject header
-    public static func subject(_ value: String) -> Self {
-        Self(__unchecked: (), name: "subject", value: value)
+    public static func subject(
+        _ value: String
+    ) throws(Error) -> Self {
+        try Self(name: "subject", value: value)
     }
 
     /// Creates a Body header
-    public static func body(_ value: String) -> Self {
-        Self(__unchecked: (), name: "body", value: value)
+    public static func body(
+        _ value: String
+    ) throws(Error) -> Self {
+        try Self(name: "body", value: value)
     }
 
     /// Creates a Cc header
-    public static func cc(_ value: String) -> Self {
-        Self(__unchecked: (), name: "cc", value: value)
+    public static func cc(
+        _ value: String
+    ) throws(Error) -> Self {
+        try Self(name: "cc", value: value)
     }
 
     /// Creates a Bcc header
-    public static func bcc(_ value: String) -> Self {
-        Self(__unchecked: (), name: "bcc", value: value)
+    public static func bcc(
+        _ value: String
+    ) throws(Error) -> Self {
+        try Self(name: "bcc", value: value)
     }
 
     /// Creates a To header (additional recipients beyond path)
-    public static func to(_ value: String) -> Self {
-        Self(__unchecked: (), name: "to", value: value)
+    public static func to(
+        _ value: String
+    ) throws(Error) -> Self {
+        try Self(name: "to", value: value)
     }
 
     /// Creates an In-Reply-To header
-    public static func inReplyTo(_ value: String) -> Self {
-        Self(__unchecked: (), name: "in-reply-to", value: value)
+    public static func inReplyTo(
+        _ value: String
+    ) throws(Error) -> Self {
+        try Self(name: "in-reply-to", value: value)
     }
 }
 
 // MARK: - UInt8.ASCII.Serializable
 
 extension RFC_6068.Mailto.Header: UInt8.ASCII.Serializable {
-    public static let serialize: @Sendable (Self) -> [UInt8] = [UInt8].init
+    static public func serialize<Buffer>(
+        ascii header: RFC_6068.Mailto.Header,
+        into buffer: inout Buffer
+    ) where Buffer : RangeReplaceableCollection, Buffer.Element == UInt8 {
+        
+        // Percent-encode name
+        buffer.append(contentsOf: RFC_3986.percentEncode(Array(header.name.utf8), allowing: .mailto.qchar))
+
+        buffer.append(UInt8.ascii.equalsSign)
+
+        // Percent-encode value
+        buffer.append(contentsOf: RFC_3986.percentEncode(Array(header.value.utf8), allowing: .mailto.qchar))
+    }
 
     /// Parses a header field from ASCII bytes (AUTHORITATIVE IMPLEMENTATION)
     ///
@@ -109,7 +147,10 @@ extension RFC_6068.Mailto.Header: UInt8.ASCII.Serializable {
     ///
     /// - Parameter bytes: The header field as ASCII bytes
     /// - Throws: `Error` if parsing fails
-    public init<Bytes: Collection>(ascii bytes: Bytes, in context: Void = ()) throws(Error)
+    public init<Bytes: Collection>(
+        ascii bytes: Bytes,
+        in context: Void = ()
+    ) throws(Error)
     where Bytes.Element == UInt8 {
         let byteArray = Array(bytes)
         guard !byteArray.isEmpty else { throw Error.empty }
@@ -127,13 +168,13 @@ extension RFC_6068.Mailto.Header: UInt8.ASCII.Serializable {
         }
 
         // Percent-decode both name and value
-        let decodedName = RFC_6068.Mailto.percentDecode(nameBytes)
-        let decodedValue = RFC_6068.Mailto.percentDecode(valueBytes)
+        let decodedName = RFC_3986.percentDecode(nameBytes)
+        let decodedValue = RFC_3986.percentDecode(valueBytes)
 
         let name = String(decoding: decodedName, as: UTF8.self)
         let value = String(decoding: decodedValue, as: UTF8.self)
 
-        self.init(__unchecked: (), name: name, value: value)
+        try self.init(name: name, value: value)
     }
 }
 
@@ -143,11 +184,7 @@ extension RFC_6068.Mailto.Header: UInt8.ASCII.RawRepresentable {
     public typealias RawValue = String
 }
 
-extension RFC_6068.Mailto.Header: CustomStringConvertible {
-    public var description: String {
-        String(self)
-    }
-}
+extension RFC_6068.Mailto.Header: CustomStringConvertible {}
 
 extension RFC_6068.Mailto.Header: Hashable {
     public func hash(into hasher: inout Hasher) {
@@ -157,41 +194,5 @@ extension RFC_6068.Mailto.Header: Hashable {
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.name.lowercased() == rhs.name.lowercased() && lhs.value == rhs.value
-    }
-}
-
-// MARK: - [UInt8] Conversion
-
-extension [UInt8] {
-    /// Creates ASCII bytes from RFC 6068 Mailto Header
-    ///
-    /// ## Category Theory
-    ///
-    /// Serialization (natural transformation):
-    /// - **Domain**: RFC_6068.Mailto.Header (structured data)
-    /// - **Codomain**: [UInt8] (ASCII bytes, percent-encoded)
-    ///
-    /// - Parameter header: The header to serialize
-    public init(_ header: RFC_6068.Mailto.Header) {
-        self = []
-
-        // Percent-encode name
-        self.append(contentsOf: RFC_6068.Mailto.percentEncodeHeaderValue(Array(header.name.utf8)))
-
-        self.append(UInt8.ascii.equalsSign)
-
-        // Percent-encode value
-        self.append(contentsOf: RFC_6068.Mailto.percentEncodeHeaderValue(Array(header.value.utf8)))
-    }
-}
-
-// MARK: - StringProtocol Conversion
-
-extension StringProtocol {
-    /// Create a string from an RFC 6068 Mailto Header
-    ///
-    /// - Parameter header: The header to convert
-    public init(_ header: RFC_6068.Mailto.Header) {
-        self = Self(decoding: header.bytes, as: UTF8.self)
     }
 }

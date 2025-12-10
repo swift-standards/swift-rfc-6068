@@ -29,9 +29,9 @@ let package = Package(
         .library(name: .rfc6068.foundation, targets: [.rfc6068.foundation])
     ],
     dependencies: [
-        .package(url: "https://github.com/swift-standards/swift-incits-4-1986", from: "0.6.0"),
-        .package(url: "https://github.com/swift-standards/swift-rfc-3986", from: "0.3.0"),
-        .package(url: "https://github.com/swift-standards/swift-rfc-5322", from: "0.6.0"),
+        .package(url: "https://github.com/swift-standards/swift-incits-4-1986", from: "0.6.2"),
+        .package(url: "https://github.com/swift-standards/swift-rfc-3986", from: "0.3.2"),
+        .package(url: "https://github.com/swift-standards/swift-rfc-5322", from: "0.7.0"),
     ],
     targets: [
         .target(

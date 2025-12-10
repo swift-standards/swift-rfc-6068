@@ -223,13 +223,11 @@ extension RFC_6068.Mailto: Binary.ASCII.Serializable {
                 // Trim whitespace
                 var trimmed = Array(addrStr.utf8)
                 while !trimmed.isEmpty
-                    && (trimmed.first == UInt8.ascii.space || trimmed.first == UInt8.ascii.htab)
-                {
+                    && (trimmed.first == UInt8.ascii.space || trimmed.first == UInt8.ascii.htab) {
                     trimmed.removeFirst()
                 }
                 while !trimmed.isEmpty
-                    && (trimmed.last == UInt8.ascii.space || trimmed.last == UInt8.ascii.htab)
-                {
+                    && (trimmed.last == UInt8.ascii.space || trimmed.last == UInt8.ascii.htab) {
                     trimmed.removeLast()
                 }
                 guard !trimmed.isEmpty else { continue }

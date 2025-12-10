@@ -114,9 +114,9 @@ extension RFC_6068.Mailto {
     }
 }
 
-// MARK: - UInt8.ASCII.Serializable
+// MARK: - Binary.ASCII.Serializable
 
-extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
+extension RFC_6068.Mailto: Binary.ASCII.Serializable {
     static public func serialize<Buffer>(
         ascii mailto: RFC_6068.Mailto,
         into buffer: inout Buffer
@@ -223,11 +223,13 @@ extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
                 // Trim whitespace
                 var trimmed = Array(addrStr.utf8)
                 while !trimmed.isEmpty
-                    && (trimmed.first == UInt8.ascii.space || trimmed.first == UInt8.ascii.htab) {
+                    && (trimmed.first == UInt8.ascii.space || trimmed.first == UInt8.ascii.htab)
+                {
                     trimmed.removeFirst()
                 }
                 while !trimmed.isEmpty
-                    && (trimmed.last == UInt8.ascii.space || trimmed.last == UInt8.ascii.htab) {
+                    && (trimmed.last == UInt8.ascii.space || trimmed.last == UInt8.ascii.htab)
+                {
                     trimmed.removeLast()
                 }
                 guard !trimmed.isEmpty else { continue }
@@ -270,7 +272,7 @@ extension RFC_6068.Mailto: UInt8.ASCII.Serializable {
 
 // MARK: - Protocol Conformances
 
-extension RFC_6068.Mailto: UInt8.ASCII.RawRepresentable {
+extension RFC_6068.Mailto: Binary.ASCII.RawRepresentable {
     public typealias RawValue = String
 }
 

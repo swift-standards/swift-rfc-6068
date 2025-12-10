@@ -114,9 +114,9 @@ extension RFC_6068.Mailto.Header {
     }
 }
 
-// MARK: - UInt8.ASCII.Serializable
+// MARK: - Binary.ASCII.Serializable
 
-extension RFC_6068.Mailto.Header: UInt8.ASCII.Serializable {
+extension RFC_6068.Mailto.Header: Binary.ASCII.Serializable {
     static public func serialize<Buffer>(
         ascii header: RFC_6068.Mailto.Header,
         into buffer: inout Buffer
@@ -184,7 +184,7 @@ extension RFC_6068.Mailto.Header: UInt8.ASCII.Serializable {
 
 // MARK: - Protocol Conformances
 
-extension RFC_6068.Mailto.Header: UInt8.ASCII.RawRepresentable {
+extension RFC_6068.Mailto.Header: Binary.ASCII.RawRepresentable {
     public typealias RawValue = String
 }
 

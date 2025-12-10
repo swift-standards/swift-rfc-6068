@@ -17,7 +17,7 @@ This RFC obsoletes RFC 2368 and adds support for Internationalized Resource Iden
 - Header field (hfield) extraction and construction
 - Percent-encoding/decoding per RFC 3986
 - Convenience accessors for common headers (subject, body, cc, bcc)
-- Full `UInt8.ASCII.Serializable` conformance
+- Full `Binary.ASCII.Serializable` conformance
 - Sendable and Codable types
 
 ## Installation

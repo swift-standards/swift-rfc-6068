@@ -11,7 +11,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import INCITS_4_1986
+public import ASCII
 
 extension RFC_6068 {
     /// A mailto URI as defined in RFC 6068

@@ -11,7 +11,7 @@ extension Target.Dependency {
 }
 
 extension Target.Dependency {
-    static var incits41986: Self { .product(name: "INCITS 4 1986", package: "swift-incits-4-1986") }
+    static var incits41986: Self { .product(name: "ASCII", package: "swift-ascii") }
     static var rfc3986: Self { .product(name: "RFC 3986", package: "swift-rfc-3986") }
     static var rfc5322: Self { .product(name: "RFC 5322", package: "swift-rfc-5322") }
 }
@@ -29,7 +29,7 @@ let package = Package(
         .library(name: .rfc6068.foundation, targets: [.rfc6068.foundation])
     ],
     dependencies: [
-        .package(path: "../swift-incits-4-1986"),
+        .package(path: "../../swift-foundations/swift-ascii"),
         .package(path: "../swift-rfc-3986"),
         .package(path: "../swift-rfc-5322"),
     ],

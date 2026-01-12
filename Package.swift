@@ -29,9 +29,9 @@ let package = Package(
         .library(name: .rfc6068.foundation, targets: [.rfc6068.foundation])
     ],
     dependencies: [
-        .package(path: "../../swift-foundations/swift-ascii"),
-        .package(path: "../swift-rfc-3986"),
-        .package(path: "../swift-rfc-5322"),
+        .package(url: "https://github.com/swift-foundations/swift-ascii.git", from: "0.0.1"),
+        .package(url: "https://github.com/swift-standards/swift-rfc-3986.git", from: "0.0.1"),
+        .package(url: "https://github.com/swift-standards/swift-rfc-5322.git", from: "0.0.1"),
     ],
     targets: [
         .target(

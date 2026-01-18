@@ -22,42 +22,32 @@ let package = Package(
         .macOS(.v26),
         .iOS(.v26),
         .tvOS(.v26),
-        .watchOS(.v26),
+        .watchOS(.v26)
     ],
     products: [
-        .library(name: .rfc6068, targets: [.rfc6068]),
+        .library(name: "RFC 6068", targets: ["RFC 6068"]),
         .library(name: .rfc6068.foundation, targets: [.rfc6068.foundation])
     ],
     dependencies: [
         .package(path: "../../swift-foundations/swift-ascii"),
         .package(path: "../swift-rfc-3986"),
-        .package(path: "../swift-rfc-5322"),
+        .package(path: "../swift-rfc-5322")
     ],
     targets: [
         .target(
-            name: .rfc6068,
+            name: "RFC 6068",
             dependencies: [
                 .incits41986,
                 .rfc3986,
-                .rfc5322,
+                .rfc5322
             ]
-        ),
-        .testTarget(
-            name: .rfc6068.tests,
-            dependencies: [.rfc6068]
-        ),
+        )
         .target(
             name: .rfc6068.foundation,
             dependencies: [
-                .rfc6068,
+                .rfc6068
             ]
-        ),
-        .testTarget(
-            name: .rfc6068.foundation.tests,
-            dependencies: [
-                "RFC 6068 Foundation"
-            ]
-        ),
+        )
     ],
     swiftLanguageModes: [.v6]
 )
@@ -73,6 +63,6 @@ for target in package.targets where ![.system, .binary, .plugin].contains(target
     existing + [
         .enableUpcomingFeature("ExistentialAny"),
         .enableUpcomingFeature("InternalImportsByDefault"),
-        .enableUpcomingFeature("MemberImportVisibility"),
+        .enableUpcomingFeature("MemberImportVisibility")
     ]
 }

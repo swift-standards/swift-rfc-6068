@@ -1,5 +1,5 @@
 //
-//  RFC_6068.Parse.Mailto.swift
+//  RFC_6068.Mailto.Parse.swift
 //  swift-rfc-6068
 //
 //  Mailto URI: "mailto:" [to] ["?" hfields]
@@ -7,7 +7,7 @@
 
 public import Parser_Primitives
 
-extension RFC_6068.Parse {
+extension RFC_6068.Mailto {
     /// Parses a mailto URI per RFC 6068 Section 2.
     ///
     /// `mailtoURI = "mailto:" [ to ] [ hfields ]`
@@ -17,14 +17,14 @@ extension RFC_6068.Parse {
     ///
     /// Returns the raw path (addresses) and query (headers) byte slices.
     /// Percent-decoding and addr-spec parsing are left to the caller.
-    public struct Mailto<Input: Collection.Slice.`Protocol`>: Sendable
+    public struct Parse<Input: Collection.Slice.`Protocol`>: Sendable
     where Input: Sendable, Input.Element == UInt8 {
         @inlinable
         public init() {}
     }
 }
 
-extension RFC_6068.Parse.Mailto {
+extension RFC_6068.Mailto.Parse {
     public struct HeaderField: Sendable {
         public let name: Input
         public let value: Input
@@ -54,9 +54,9 @@ extension RFC_6068.Parse.Mailto {
     }
 }
 
-extension RFC_6068.Parse.Mailto: Parser.`Protocol` {
+extension RFC_6068.Mailto.Parse: Parser.`Protocol` {
     public typealias ParseOutput = Output
-    public typealias Failure = RFC_6068.Parse.Mailto<Input>.Error
+    public typealias Failure = RFC_6068.Mailto.Parse<Input>.Error
 
     @inlinable
     public func parse(_ input: inout Input) throws(Failure) -> Output {
